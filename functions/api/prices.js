@@ -38,7 +38,7 @@ async function fetchSymbol(sym) {
 }
 
 async function build() {
-  const jobs = ASSETS.flatMap((a) => a.symbols.map((s) => ({ asset: a.id, symbol: s.s, name: s.n })));
+  const jobs = ASSETS.flatMap((a) => a.symbols.map((s) => ({ asset: a.id, symbol: s.s, ticker: s.x || s.s, name: s.n })));
   const settled = await Promise.allSettled(jobs.map((j) => fetchSymbol(j.symbol)));
   const quotes = jobs.map((j, i) => {
     const r = settled[i];

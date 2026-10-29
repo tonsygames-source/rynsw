@@ -1,6 +1,6 @@
 import { FEEDS, parseFeed } from '../_lib/rss.js';
 import { classify, buildSignals } from '../_lib/analyze.js';
-import { ASSETS } from '../_lib/assets.js';
+import { ASSETS, GROUP_ORDER, tickersOf } from '../_lib/assets.js';
 import { fetchText, json, cached } from '../_lib/http.js';
 
 const TTL = 300; // 5 minut
@@ -51,7 +51,8 @@ async function build() {
   return json(
     {
       updated: now,
-      assets: ASSETS.map(({ id, name, group, note }) => ({ id, name, group, note: note || null })),
+      groups: GROUP_ORDER,
+      assets: ASSETS.map((a) => ({ id: a.id, name: a.name, icon: a.icon, group: a.group, tickers: tickersOf(a), note: a.note || null })),
       sources,
       signals,
       items: slim,
