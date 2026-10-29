@@ -87,6 +87,10 @@ function link(text, url, cls) {
   return href ? h('a', { href, target: '_blank', rel: 'noopener noreferrer', class: cls }, text) : h('span', { class: cls }, text);
 }
 
+const GROUP_ICONS = { Surowce: '🛢️', Indeksy: '📊', Forex: '💱', Krypto: '₿', ETF: '🧺', Obligacje: '🧾' };
+
+function assetLabel(a) { return `${a?.icon ? a.icon + ' ' : ''}${a?.name || ''}`.trim(); }
+
 function assetMap() {
   return Object.fromEntries((state.news?.assets || []).map((a) => [a.id, a]));
 }
@@ -126,6 +130,26 @@ function statusBox(what, err) {
   );
 }
 
+// Udział sygnałów w % (metoda największej reszty, żeby suma wynosiła dokładnie 100).
+function shares(s) {
+  const raw = [s.up, s.down, s.mixed];
+  const total = raw.reduce((a, b) => a + b, 0) || 1;
+  const exact = raw.map((n) => (n / total) * 100);
+  const out = exact.map(Math.floor);
+  let left = 100 - out.reduce((a, b) => a + b, 0);
+  exact.map((v, i) => [v - out[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0) { out[i] += 1; left -= 1; } });
+  return { up: out[0], down: out[1], mixed: out[2], total: raw.reduce((a, b) => a + b, 0) };
+}
+
+// W ilu sesjach z ostatniego miesiąca cena rosła (z danych wykresu). To fakt historyczny, nie prognoza.
+function upDays(q) {
+  const v = q?.spark;
+  if (!v || v.length < 3) return null;
+  let up = 0;
+  for (let i = 1; i < v.length; i++) if (v[i] > v[i - 1]) up += 1;
+  return { up, n: v.length - 1 };
+}
+
 function meter(s) {
   const total = s.up + s.down + s.mixed || 1;
   const seg = (cls, n) => h('i', { class: cls, style: `width:${(n / total) * 100}%` });
@@ -136,18 +160,28 @@ function meter(s) {
 function assetCard(s, amap) {
   const a = amap[s.asset] || { name: s.asset };
   const q = quoteFor(s.asset);
+  const sh = shares(s);
   const body = h('div', { class: 'card-body', hidden: true });
   const head = h('button', { class: 'card-head', 'aria-expanded': 'false' },
-    h('span', { class: 'card-title' }, a.name),
+    h('span', { class: 'card-title' }, assetLabel(a)),
     q ? h('span', { class: 'card-price' }, fmtNum(q.price), ' ', h('span', { class: pctClassFor(s.asset, q.d1) }, fmtPct(q.d1))) : h('span', { class: 'card-price muted' }, ''),
     meter(s),
     h('span', { class: 'card-sub' },
-      s.up ? h('span', { class: 'up' }, `▲ ${s.up}`) : null,
-      s.down ? h('span', { class: 'down' }, `▼ ${s.down}`) : null,
-      s.mixed ? h('span', { class: 'mixed' }, `◆ ${s.mixed}`) : null,
+      h('span', { class: 'up' }, `▲ ${sh.up}%`),
+      h('span', { class: 'down' }, `▼ ${sh.down}%`),
+      sh.mixed ? h('span', { class: 'mixed' }, `◆ ${sh.mixed}%`) : null,
       h('span', null, `${s.reasons.length} ${plural(s.reasons.length, 'temat', 'tematy', 'tematów')}`),
+      a.tickers ? h('span', { class: 'tick' }, a.tickers) : null,
     ),
   );
+
+  const ud = upDays(q);
+  body.append(h('p', { class: 'note' },
+    `Procenty = jaka część sygnałów z ostatnich 48 godz. wskazuje dany kierunek (▲ ${sh.up}% · ▼ ${sh.down}%${sh.mixed ? ` · ◆ ${sh.mixed}%` : ''}). `,
+    'To NIE jest szansa na ruch ceny – to tylko podsumowanie wiadomości. ',
+    sh.total < 3 ? h('b', null, 'Mało sygnałów, więc wynik jest mało wiarygodny. ') : null,
+    ud ? `Dla porównania: w ostatnim miesiącu cena rosła w ${ud.up} z ${ud.n} sesji.` : null,
+  ));
 
   for (const r of s.reasons) {
     const d = DIR[r.dir];
@@ -180,7 +214,7 @@ function renderOverview() {
   const okSrc = sources.filter((s) => s.ok).length;
 
   root.append(h('p', { class: 'lead' },
-    `Z ostatnich 48 godzin wyłowiłem ${recent} wiadomości, które mogą mieć znaczenie dla rynków (źródła: ${okSrc}/${sources.length}). Kliknij aktywo, żeby zobaczyć powody i nagłówki.`));
+    `Z ostatnich 48 godzin wyłowiłem ${recent} wiadomości, które mogą mieć znaczenie dla rynków (źródła: ${okSrc}/${sources.length}). Procenty to udział sygnałów, a nie szansa na ruch ceny. Kliknij aktywo, żeby zobaczyć powody i nagłówki.`));
   root.append(h('p', { class: 'legend' },
     h('span', { class: 'up' }, '▲ możliwy wzrost'), h('span', { class: 'down' }, '▼ możliwy spadek'), h('span', { class: 'mixed' }, '◆ zależy od szczegółów')));
 
@@ -222,7 +256,7 @@ function renderNews() {
 
   const sel = h('select', { 'aria-label': 'Filtruj po aktywie', onchange: (e) => { state.asset = e.target.value; state.shown = 40; renderNews(); } },
     h('option', { value: 'all' }, 'Wszystkie aktywa'),
-    state.news.assets.map((a) => h('option', { value: a.id, selected: state.asset === a.id }, a.name)));
+    state.news.assets.map((a) => h('option', { value: a.id, selected: state.asset === a.id }, assetLabel(a))));
 
   const tog = h('label', { class: 'toggle' },
     h('input', { type: 'checkbox', checked: state.onlyRelevant, onchange: (e) => { state.onlyRelevant = e.target.checked; state.shown = 40; renderNews(); } }),
@@ -243,7 +277,7 @@ function renderNews() {
   items.slice(0, state.shown).forEach((it) => {
     const chips = it.chips.map((c) => {
       const d = DIR[c.dir];
-      return h('span', { class: `chip ${d.cls}`, title: d.word }, `${d.sym} ${(amap[c.asset]?.name) || c.asset}`);
+      return h('span', { class: `chip ${d.cls}`, title: d.word }, `${d.sym} ${assetLabel(amap[c.asset]) || c.asset}`);
     });
     root.append(h('article', { class: 'news-item' },
       h('div', { class: 'news-meta' }, h('span', null, it.source), h('span', null, '·'), h('span', null, timeAgo(it.published))),
@@ -252,7 +286,7 @@ function renderNews() {
       chips.length ? h('div', { class: 'chips' }, chips) : null,
       it.chips.length ? h('details', { class: 'why' },
         h('summary', null, 'Dlaczego?'),
-        h('ul', null, it.chips.map((c) => h('li', null, h('b', null, `${DIR[c.dir].sym} ${amap[c.asset]?.name || c.asset}: `), c.why)))) : null,
+        h('ul', null, it.chips.map((c) => h('li', null, h('b', null, `${DIR[c.dir].sym} ${assetLabel(amap[c.asset]) || c.asset}: `), c.why)))) : null,
     ));
   });
 
@@ -299,21 +333,21 @@ function renderPrices() {
     root.append(statusBox('ceny (źródło danych nie odpowiada)', 'Spróbuj ponownie za kilka minut.'));
     return;
   }
-  root.append(h('p', { class: 'lead' }, 'Zmiana dzienna i w ciągu ostatniego miesiąca. Dane z Yahoo Finance mogą być opóźnione do ok. 15 minut.'));
+  root.append(h('p', { class: 'lead' }, 'Symbole jak w XTB (np. OIL.WTI, GOLD, US500). Zmiana dzienna i miesięczna; to ceny rynkowe z Yahoo Finance, mogą się różnić od cen CFD w XTB i być opóźnione do ok. 15 minut.'));
 
-  const order = ['Surowce', 'Waluty', 'Akcje', 'Krypto', 'Obligacje'];
+  const order = state.news?.groups || ['Surowce', 'Indeksy', 'Forex', 'Krypto', 'ETF', 'Obligacje'];
   const groupOf = (q) => amap[q.asset]?.group || 'Inne';
   for (const g of order) {
     const list = quotes.filter((q) => groupOf(q) === g);
     if (!list.length) continue;
-    root.append(h('h2', null, g));
+    root.append(h('h2', null, `${GROUP_ICONS[g] || ''} ${g}`.trim()));
     for (const q of list) {
       if (!q.ok) {
-        root.append(h('div', { class: 'row bad' }, h('div', null, h('div', { class: 'nm' }, q.name), h('div', { class: 'sub' }, q.symbol)), h('div', { class: 'sub' }, 'brak danych')));
+        root.append(h('div', { class: 'row bad' }, h('div', null, h('div', { class: 'nm' }, q.ticker || q.symbol), h('div', { class: 'sub' }, q.name)), h('div', { class: 'sub' }, 'brak danych')));
         continue;
       }
       root.append(h('div', { class: 'row' },
-        h('div', null, h('div', { class: 'nm' }, q.name), h('div', { class: 'sub' }, `${q.symbol}${q.currency ? ' · ' + q.currency : ''} · 1 mies. `, h('span', { class: pctClassFor(q.asset, q.m1) }, fmtPct(q.m1)))),
+        h('div', null, h('div', { class: 'nm' }, h('span', { class: 'ico' }, amap[q.asset]?.icon || ''), q.ticker || q.symbol), h('div', { class: 'sub' }, `${q.name} · 1 mies. `, h('span', { class: pctClassFor(q.asset, q.m1) }, fmtPct(q.m1)))),
         h('div', { class: 'px' }, h('b', null, fmtNum(q.price)), h('span', { class: pctClassFor(q.asset, q.d1) }, fmtPct(q.d1))),
         sparkline(q.spark, q.m1 >= 0, Boolean(amap[q.asset]?.note)),
       ));

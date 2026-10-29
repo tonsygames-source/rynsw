@@ -1,5 +1,5 @@
 // Service worker: aplikacja otwiera się od razu (nawet offline), a dane zawsze próbuje pobrać świeże.
-const VERSION = 'v1';
+const VERSION = 'v3';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
