@@ -17,6 +17,9 @@ functions/_lib/    ← logika: rules.js (reguły), assets.js (aktywa), rss.js (�
 tests/             ← testy (npm test)
 ```
 
+Nazewnictwo wzorowane na XTB (OIL.WTI, GOLD, US500, DE40, PL20, BITCOIN…) i kategorie: Surowce, Indeksy, Forex, Krypto, ETF.
+Symbole XTB zmienisz w `functions/_lib/assets.js` (pole `x`). Ceny pochodzą z Yahoo Finance, więc mogą się trochę różnić od cen CFD w XTB.
+
 Ekrany: **Przegląd** (co może zyskać / stracić i dlaczego), **Wiadomości** (z filtrami), **Ceny** (z wykresami miesięcznymi).
 
 ## Jak to uruchomić (za darmo) – krok po kroku
@@ -79,3 +82,4 @@ Potem otwórz http://localhost:8788.
 - Reguły działają na słowach kluczowych, więc mogą się mylić (np. nie zrozumieją ironii ani niuansów). Zawsze otwórz artykuł.
 - Bloomberg, FT i część innych serwisów mają płatne artykuły i nie udostępniają darmowego RSS – dlatego ich nie ma na liście.
 - Strzałki ▲/▼ oznaczają kierunek **możliwego** wpływu na cenę, nie jego siłę ani czas.
+- Procenty na kartach to **udział sygnałów** (jaka część wiadomości z 48 godzin wskazuje wzrost, a jaka spadek), a **nie prawdopodobieństwo** ruchu ceny. Przy małej liczbie wiadomości wynik jest mało wiarygodny, a 100% nie oznacza pewności.
