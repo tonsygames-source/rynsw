@@ -128,6 +128,8 @@ await asyncOk('/api/news: łączy źródła, odfiltrowuje duplikaty, raportuje b
   assert.equal(data.items.length, 5); // 4 z BBC (Guardian to duplikaty) + 1 z Al Jazeera
   assert.ok(data.signals.length > 0);
   assert.ok(data.assets.length >= 15);
+  assert.ok(data.assets.every((a) => a.icon && a.tickers && data.groups.includes(a.group)));
+  assert.equal(data.assets.find((a) => a.id === 'ropa').tickers, 'OIL.WTI · OIL');
   assert.ok(data.items.every((i) => Array.isArray(i.chips)));
 });
 
@@ -139,6 +141,9 @@ await asyncOk('/api/prices: jedna awaria symbolu nie psuje reszty', async () => 
   assert.equal(brent.ok, false);
   assert.equal(wti.ok, true);
   assert.equal(wti.spark.length, 5);
+  assert.equal(wti.ticker, 'OIL.WTI');   // symbol w stylu XTB
+  assert.equal(brent.ticker, 'OIL');
+  assert.equal(data.quotes.find((q) => q.symbol === 'TTF=F').ticker, 'TTF=F'); // brak symbolu XTB -> symbol z Yahoo
 });
 
 globalThis.fetch = realFetch;
